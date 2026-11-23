@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Velora Pay — Admin</title>
+  <style>
+    :root { --ink:#111; --muted:#5b6470; --line:#e5e7eb; --ok:#0a7c3e; --warn:#b45309; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: #f6f6f6; color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    header { background: #111; color: #fff; padding: 18px 24px; }
+    header h1 { margin: 0; font-size: 18px; letter-spacing: .02em; }
+    main { max-width: 760px; margin: 28px auto; padding: 0 20px; }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 22px; margin-bottom: 18px; }
+    .card h2 { margin: 0 0 14px; font-size: 15px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    .row { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+    .row:last-child { border-bottom: 0; }
+    .row span:first-child { color: var(--muted); }
+    code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+    .pill { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+    .pill.ok { background: #e8f5ee; color: var(--ok); }
+    .pill.warn { background: #fdf1e3; color: var(--warn); }
+    .btn { display: inline-block; padding: 12px 18px; border-radius: 6px; border: 0; background: #111; color: #fff; font-weight: 600; text-decoration: none; cursor: pointer; font-size: 14px; }
+    .btn:hover { background: #2b2b2b; }
+    .btn.ghost { background: transparent; color: #111; border: 1px solid var(--line); }
+    .btn[disabled] { opacity: .5; pointer-events: none; }
+    p.hint { color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .error { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <header><h1>Velora Pay — Buy Now → Stripe</h1></header>
+  <main>
+    <div id="error" class="card error" style="display:none"></div>
+
+    <div class="card">
+      <h2>Store</h2>
+      <div class="row"><span>Shop domain</span><strong id="shop">—</strong></div>
+      <div class="row"><span>App installed</span><span id="installed">—</span></div>
+      <div class="row"><span>Stripe connected</span><span id="stripe">—</span></div>
+      <div class="row"><span>Stripe account</span><code id="account">—</code></div>
+      <div class="row"><span>Scopes</span><code id="scopes">—</code></div>
+    </div>
+
+    <div class="card">
+      <h2>Actions</h2>
+      <p class="hint">
+        Connect the merchant's Stripe account so payment links are created as direct charges on
+        their account. Order numbers start at <code>#67493</code> and increment per payment link.
+      </p>
+      <p>
+        <a id="connect" class="btn" href="#">Connect Stripe</a>
+        <form id="disconnect" method="post" action="/stripe/disconnect" style="display:inline">
+          <input type="hidden" name="shop" id="disconnect-shop">
+          <button class="btn ghost" type="submit">Disconnect Stripe</button>
+        </form>
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>How it works</h2>
+      <p class="hint">
+        1. A shopper clicks <strong>Buy Now</strong> on a product page.<br>
+        2. The app reads the variant price from Shopify and creates a Stripe Checkout Session
+        titled with the next order number (e.g. <code>#67493</code>).<br>
+        3. The shopper pays on Stripe; a webhook marks the order paid here.
+      </p>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var shop = params.get('shop');
+
+      function el(id) { return document.getElementById(id); }
+
+      function pill(text, cls) {
+        return '<span class="pill ' + cls + '">' + text + '</span>';
+      }
+
+      function fail(message) {
+        var box = el('error');
+        box.style.display = '';
+        box.textContent = message;
+      }
+
+      if (!shop) { fail('Missing ?shop= parameter.'); return; }
+
+      el('shop').textContent = shop;
+      el('disconnect-shop').value = shop;
+      el('connect').href = '/stripe/connect?shop=' + encodeURIComponent(shop);
+
+      fetch('/admin/data?shop=' + encodeURIComponent(shop))
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          el('installed').innerHTML = data.installed ? pill('Yes', 'ok') : pill('No', 'warn');
+          el('stripe').innerHTML = data.stripeConnected ? pill('Yes', 'ok') : pill('Not connected', 'warn');
+          el('account').textContent = data.stripeAccount || '—';
+          el('scopes').textContent = data.scopes || '—';
+          if (data.stripeConnected) {
+            el('connect').textContent = 'Reconnect Stripe';
+          }
+        })
+        .catch(function () { fail('Could not load app status.'); });
+    })();
+  </script>
+</body>
+</html>
